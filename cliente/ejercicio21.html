@@ -1,0 +1,255 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<title>Ejercicio 21 - Lector RSS</title>
+<script type="text/javascript">
+	
+	var rss={
+		canal:{},
+		items:[]
+	};
+
+	var net = new Object();
+ 
+	net.READY_STATE_UNINITIALIZED=0; 
+	net.READY_STATE_LOADING=1; 
+	net.READY_STATE_LOADED=2; 
+	net.READY_STATE_INTERACTIVE=3; 
+	net.READY_STATE_COMPLETE=4; 
+	 
+	// Constructor
+	net.CargadorContenidos = function(url, funcion, funcionError, metodo, parametros, contentType, asincrono) {
+	  this.url = url;
+	  this.req = null;
+	  this.onload = funcion;
+	  this.onerror = (funcionError) ? funcionError : this.defaultError;
+	  this.cargaContenidoXML(url, metodo, parametros, contentType, asincrono);
+	}
+	 
+	net.CargadorContenidos.prototype = {
+	  cargaContenidoXML: function(url, metodo, parametros, contentType, asincrono) {
+		if(window.XMLHttpRequest) {
+		  this.req = new XMLHttpRequest();
+		}
+		else if(window.ActiveXObject) {
+		  this.req = new ActiveXObject("Microsoft.XMLHTTP");
+		}
+	 
+		if(this.req) {
+		  try {
+			var loader = this;
+			this.req.onreadystatechange = function() {
+			  loader.onReadyState.call(loader);
+			}
+			this.req.open(metodo, url, (asincrono===false)?false:true);
+			if(contentType) {
+			  this.req.setRequestHeader("Content-Type", contentType);
+			}
+			this.req.send(parametros);
+			} catch(err) {
+			  this.onerror.call(this);
+			}
+		}
+	  },
+	 
+	  onReadyState: function() {
+		var req = this.req; 
+		var ready = req.readyState; 
+		if(ready == net.READY_STATE_COMPLETE) { 
+		  var httpStatus = req.status; 
+		  if(httpStatus == 200 || httpStatus == 0) { 
+			this.onload.call(this);
+		  }
+		  else {
+			this.onerror.call(this);
+		  }
+		}
+	  },
+	 
+	  defaultError: function() {
+		alert("Se ha producido un error al obtener los datos"
+		  + "\n\nreadyState:" + this.req.readyState
+		  + "\nstatus: " + this.req.status
+		  + "\nheaders: " + this.req.getAllResponseHeaders());
+	  }
+	}
+
+function cargarRSS(){
+	borrarInfo()
+	info("Averiguando la URL el canal RSS...");
+	var url='http://vacanwallpapers.byethost6.com/descubreRss.php?nocache='+Math.random();
+	//obtener url de la pagina: document.URL, pero aca no se usa
+	//Se obtiene la url escrita en el imput
+	var url_noticias=document.getElementById("url").value;
+	info("La URL original es:"+url_noticias);
+	var parametros="url="+encodeURIComponent(url_noticias);
+	//esto es necesario para poder enviar los parametros con la URL, porque es GET
+	url+="&"+parametros;
+	var cargar = new net.CargadorContenidos(url,recibeCanal,null,"GET");
+}
+
+function recibeCanal(){	
+	//Se Recibe la respuesta del servidor con:		
+		//this.req.responseXML  -->si es XML
+		//this.req.responseText  -->si es Texto
+	var canal_RSS=this.req.responseText;
+	
+	info("Canal RSS encontrado, la url es:"+canal_RSS+" Descargando Canal...");
+	var url='http://vacanwallpapers.byethost6.com/proxy.php?nocache='+Math.random();
+	
+	//ct=text/xml --> es el content type para recibir contenidos xml 
+	var parametros="url="+encodeURIComponent(canal_RSS)+"&ct=text/xml";
+	
+	//esto es necesario para poder enviar los parametros con la URL, porque es GET
+	url+="&"+parametros;
+	var cargar2= new net.CargadorContenidos(url,procesaCanal,null,"GET");
+}
+
+/*procesaCanal, recibe por parte del servidor la siguiente info en formato xml
+
+<?xml version="1.0"?>
+<rss version="2.0">
+<channel>
+  <title>Ejemplo de canal 2.0</title> 
+  <link>http://www.ejemplo_no_real.com</link> 
+  <description>Se trata de un ejemplo de canal RSS 2.0, sencillo pero completo</description>
+  <item>
+    <title>El primer elemento</title> 
+    <link>http://www.ejemplo_no_real.com/elementos/001.html</link> 
+    <description>Esta es la descripción del primer elemento.</description>
+    <pubDate>Sun, 18 Feb 2007 15:04:27 GMT</pubDate>
+  </item>
+  <item>
+    <title>El segundo elemento</title> 
+    <link> http://www.ejemplo_no_real.com/elementos/002.html </link> 
+    <description> Esta es la descripción del primer elemento.</description>
+    <pubDate>Sun, 18 Feb 2007 15:04:27 GMT</pubDate>
+  </item>
+  ...
+  <item>
+    <title>El elemento N</title> 
+    <link> http://www.ejemplo_no_real.com/elementos/00n.html </link> 
+    <description> Esta es la descripción del elemento N.</description>
+    <pubDate>Sun, 18 Feb 2007 15:04:27 GMT</pubDate>
+  </item>
+</channel>
+</rss>
+
+*/
+
+	function procesaCanal(){
+		info("Canal RSS descargado, Procesando Canal...");
+		//Se Recibe la respuesta del servidor con:		
+			//this.req.responseXML  -->si es XML
+			//this.req.responseText  -->si es Texto
+		var xml=this.req.responseXML;
+		
+		
+		var canal=xml.getElementsByTagName('channel')[0];
+		var titulo=canal.getElementsByTagName('title')[0].textContent;
+		rss.canal.titulo=titulo;
+			
+		var enlace=canal.getElementsByTagName('link')[0].textContent;
+		rss.canal.enlace=enlace;
+		 
+		var items=canal.getElementsByTagName('item');
+		for(var i=0;i<items.length;i++){
+			var item=items[i];
+			var titulo=item.getElementsByTagName('title')[0].textContent;
+			var enlace=item.getElementsByTagName('link')[0].textContent;
+			var descripcion=item.getElementsByTagName('description')[0].textContent;
+			var fecha=item.getElementsByTagName('pubDate')[0].textContent;
+		 
+			rss.items[i]={
+				titulo: titulo,
+				enlace: enlace,
+				descripcion: descripcion,
+				fecha: fecha
+			};
+		}
+		mostrarRSS();
+		
+	}
+	
+	function mostrarRSS(){
+		info("Canal RSS procesado, Se muestra el contenido");
+		document.getElementById("noticias").style.display='block';
+		var div_titulo=document.getElementById("titulo");
+		div_titulo.innerHTML="";
+		var div_titulares=document.getElementById("titulares");
+		div_titulares.innerHTML="";
+		document.getElementById("contenidos").innerHTML="";
+				
+		div_titulo.innerHTML="<a href=\""+rss.canal.enlace+"\">"+rss.canal.titulo+"</a>";
+		for(var i=0;i<rss.items.length;i++){
+			div_titulares.innerHTML+="<a href=\"#\" onclick=\"muestraTitular("+i+")\">"+rss.items[i].titulo+"</a><br/>";
+		}
+	}
+	
+	function muestraTitular(indice){
+		var item=rss.items[indice];
+		var html="";
+		html+="<h1><a href=\""+item.enlace+"\">"+item.titulo+"</a></h1>";
+		if(item.fecha!=undefined){
+			html+="<h2>"+item.fecha+"</h2>";
+		}
+		html+="<p>"+item.descripcion +"</p>";
+ 
+		document.getElementById("contenidos").innerHTML=html;
+	}
+
+function info(mensaje) {
+  document.getElementById("info").innerHTML += mensaje + "<br/>";  
+}
+
+function borrarInfo(){
+  document.getElementById('info').innerHTML = "";
+}
+
+window.onload = function() {
+	document.getElementById("cargar").onclick=cargarRSS;
+}
+</script>
+
+<style type="text/css">
+body {font-family: Arial, Helvetica, sans-serif;}
+
+form {margin:0;}
+#info {margin:0; font-size:.7em; color: #777;}
+
+#noticias {position:absolute; width:80%; margin-top:1em; border:2px solid #369; padding:0; display:none;}
+#titulo {background-color:#DDE8F3; padding:.3em; border-bottom: 1px solid #369;}
+#titulares {width:20%; float:left; border: none; border-right: 1px solid #D9E5F2;}
+#contenidos {margin-left:22%; padding:0px 20px; vertical-align:top;}
+
+#titulo h2 { font-weight: bold; color: #00368F; font-size:1.4em; margin:0;}
+#titulares ul { list-style: none; margin:0; padding:0;}
+#titulares ul li { border-bottom: 1px solid #EDEDED; padding:6px; line-height: 1.4em; }
+#titulares a {display:block; font-size:12px; color:#369;}
+#titulares a:hover { text-decoration: none; color: #C00; }
+
+#contenidos h1 {font-weight:bold; color: #00368F; font-size: 1.4em; padding: .2em; margin:.3em 0 0 0;}
+#contenidos h2 {font-weight:bold; color: #888; font-size: .9em; padding: .2em; margin:.3em 0 0 0;}
+#contenidos p {color:#222; font-size:1.1em; padding:4px; line-height:1.5em;}
+</style>
+
+</head>
+
+<body>
+<h1>Lector RSS</h1>
+
+<form id="formularioCargar">
+  <input type="text" size="90" id="url" name="url" value="http://" />
+  <input type="button" value="Mostrar RSS" id="cargar" />
+</form>
+<div id="info"></div>
+
+<div id="noticias">
+  <div id="titulo"></div>
+  <div id="titulares"></div>
+  <div id="contenidos"></div>
+</div>
+
+</body>
+</html>
